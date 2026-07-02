@@ -358,4 +358,24 @@ const parsedConfig = configSchema.parse(process.env);
 // configured. (REDIS_EVICT_URL already falls back to REDIS_RATE_LIMIT_URL.)
 parsedConfig.REDIS_RATE_LIMIT_URL ??= parsedConfig.REDIS_URL;
 
+// Fail fast with a readable error when a NUQ database URL is set but not
+// parseable (e.g. an unresolved ${{...}} template from a deploy platform) —
+// pg otherwise dies later with an unhelpful "reading 'searchParams'" error.
+for (const key of ["NUQ_DATABASE_URL", "NUQ_DATABASE_URL_LISTEN"] as const) {
+  const value = parsedConfig[key];
+  if (!value || value.startsWith("/")) continue; // unset or unix socket path
+  try {
+    new URL(value);
+  } catch {
+    const masked = value.replace(/:\/\/([^:@/]*):([^@/]*)@/, "://$1:****@");
+    throw new Error(
+      `${key} is not a valid connection URL: "${masked}". Expected e.g. ` +
+        `postgresql://user:password@host:5432/dbname. If this contains a ` +
+        `platform variable reference (e.g. Railway's \${{service.VAR}}), it ` +
+        `did not resolve — check that the referenced service and variable ` +
+        `exist and the service name matches exactly.`,
+    );
+  }
+}
+
 export const config = parsedConfig;
