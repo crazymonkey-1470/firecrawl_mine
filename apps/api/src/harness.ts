@@ -859,17 +859,26 @@ async function startServices(command?: string[]): Promise<Services> {
     },
   );
 
-  const extractWorker = execForward(
-    "extract-worker",
-    process.argv[2] === "--start-docker"
-      ? "node dist/src/services/extract-worker.js"
-      : "pnpm extract-worker:production",
-    {
-      NUQ_REDUCE_NOISE: "true",
-      NUQ_POD_NAME: "extract-worker",
-      EXTRACT_WORKER_PORT: String(EXTRACT_WORKER_PORT),
-    },
-  );
+  // The extract queue runs on RabbitMQ only — without NUQ_RABBITMQ_URL the
+  // worker can't start, so skip it (the /extract endpoint won't work)
+  const extractWorker = config.NUQ_RABBITMQ_URL
+    ? execForward(
+        "extract-worker",
+        process.argv[2] === "--start-docker"
+          ? "node dist/src/services/extract-worker.js"
+          : "pnpm extract-worker:production",
+        {
+          NUQ_REDUCE_NOISE: "true",
+          NUQ_POD_NAME: "extract-worker",
+          EXTRACT_WORKER_PORT: String(EXTRACT_WORKER_PORT),
+        },
+      )
+    : undefined;
+  if (!extractWorker) {
+    logger.warn(
+      "NUQ_RABBITMQ_URL is not set: not starting extract-worker, /extract will be unavailable",
+    );
+  }
 
   const nuqWorkers = Array.from({ length: NUQ_WORKER_COUNT }, (_, i) =>
     execForward(
