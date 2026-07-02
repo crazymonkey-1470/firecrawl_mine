@@ -55,11 +55,9 @@ COPY apps/api/pnpm-lock.yaml apps/api/pnpm-workspace.yaml apps/api/package.json 
 COPY apps/api/patches ./patches
 COPY apps/api/native ./native
 
-# Install dependencies
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/app/native/target \
-    pnpm install --frozen-lockfile
+# Install dependencies (no BuildKit cache mounts — Railway's builder requires
+# service-prefixed cache IDs, and these are only a rebuild-speed optimization)
+RUN pnpm install --frozen-lockfile
 
 COPY apps/api/ ./
 
