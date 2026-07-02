@@ -642,6 +642,15 @@ async function setupNuqRabbitMQ(): Promise<Services["nuqRabbitMQ"]> {
     return undefined;
   }
 
+  // External NUQ database configured (e.g. a managed deployment): don't try
+  // to manage containers — RabbitMQ is optional and NUQ falls back to polling
+  if (config.NUQ_DATABASE_URL) {
+    logger.info(
+      "NUQ_DATABASE_URL is set without NUQ_RABBITMQ_URL, skipping RabbitMQ container management (NUQ will poll)",
+    );
+    return undefined;
+  }
+
   // Running locally: manage container
   logger.section("Setting up NUQ RabbitMQ container");
 
